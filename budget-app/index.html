@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>가계부</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="container">
+    <h1>가계부</h1>
+
+    <div class="tab-row">
+      <button class="tab active" onclick="showPage('dashboard', this)">예산 현황</button>
+      <button class="tab" onclick="showPage('record', this)">수입/지출</button>
+      <button class="tab" onclick="showPage('history', this)">월별 내역</button>
+      <button class="tab" onclick="showPage('settings', this)">예산 설정</button>
+    </div>
+
+    <!-- 예산 현황 -->
+    <div class="page active" id="page-dashboard">
+      <div class="month-nav">
+        <button onclick="changeMonth(-1)">◀</button>
+        <div class="month-title" id="dash-month-title"></div>
+        <button onclick="changeMonth(1)">▶</button>
+        <button class="new-month-btn" onclick="newMonth()">+ 새 달 시작</button>
+      </div>
+      <div class="summary">
+        <div class="metric">
+          <div class="metric-label">수입 합계</div>
+          <div class="metric-value" id="s-income" style="color:#1D9E75;">₩0</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">지출 합계</div>
+          <div class="metric-value" id="s-expense" style="color:#D85A30;">₩0</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">잔액</div>
+          <div class="metric-value" id="s-balance">₩0</div>
+        </div>
+      </div>
+      <div class="section-label">카테고리별 예산 잔여</div>
+      <div class="remain-grid" id="remain-grid"></div>
+      <div class="chart-wrap">
+        <div class="chart-title">예산 vs 지출 비교</div>
+        <div id="bar-chart"></div>
+      </div>
+    </div>
+
+    <!-- 수입/지출 기입 -->
+    <div class="page" id="page-record">
+      <div class="month-nav">
+        <div class="month-title" id="rec-month-title"></div>
+      </div>
+      <div id="readonly-notice" class="readonly-notice" style="display:none;">
+        이 달은 지난 달입니다. 현재 달로 이동해서 기입하세요.
+      </div>
+      <div id="input-section">
+        <div class="input-card">
+          <div class="type-row">
+            <button class="type-btn on-income" id="t-income" onclick="setType('income')">수입</button>
+            <button class="type-btn" id="t-expense" onclick="setType('expense')">지출</button>
+          </div>
+          <div class="steps">
+            <div class="field">
+              <label><span class="step-num">1</span>금액</label>
+              <input type="number" id="amount" placeholder="0" min="0" />
+            </div>
+            <div class="field">
+              <label><span class="step-num">2</span>분류</label>
+              <select id="cat"></select>
+            </div>
+            <div class="field">
+              <label><span class="step-num">3</span>날짜</label>
+              <input type="date" id="date" />
+            </div>
+            <div class="field">
+              <label><span class="step-num">4</span>메모 (선택)</label>
+              <input type="text" id="memo" placeholder="메모..." />
+            </div>
+          </div>
+          <button class="add-btn income" id="add-btn" onclick="addItem()">+ 수입 추가</button>
+        </div>
+      </div>
+      <div class="section-label">내역</div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>날짜</th><th>구분</th><th>분류</th><th>금액</th><th>메모</th><th></th></tr>
+          </thead>
+          <tbody id="list-body">
+            <tr class="empty-row"><td colspan="5">아직 내역이 없습니다.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- 월별 내역 -->
+    <div class="page" id="page-history">
+      <div id="history-content"></div>
+    </div>
+
+    <!-- 예산 설정 -->
+    <div class="page" id="page-settings">
+      <div class="section-label" style="margin-bottom:10px;">카테고리별 월 예산 설정</div>
+      <div class="budget-setting" id="budget-setting"></div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
