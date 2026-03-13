@@ -59,6 +59,19 @@ function fmt(n) {
   return '₩' + Math.round(n).toLocaleString('ko-KR');
 }
 
+/** 오늘 날짜 → "YYYY-MM-DD" */
+function todayStr() {
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+
+/** "YYYY-MM-DD" → "3/13" */
+function fmtDate(str) {
+  if (!str) return '-';
+  const [, m, d] = str.split('-');
+  return parseInt(m) + '/' + parseInt(d);
+}
+
 // =========================================
 // 데이터 접근
 // =========================================
@@ -150,6 +163,12 @@ function setType(type) {
   // 분류 드롭다운 업데이트
   document.getElementById('cat').innerHTML = cats.map(c => `<option>${c}</option>`).join('');
 
+  // 오늘 날짜 자동 입력 (이미 값 있으면 유지)
+  const dateEl = document.getElementById('date');
+  if (!dateEl.value) {
+    dateEl.value = todayStr();
+  }
+
   // 버튼 스타일 — 선택된 버튼에만 색 표시
   document.getElementById('t-income').className  = 'type-btn' + (type === 'income'  ? ' on-income'  : '');
   document.getElementById('t-expense').className = 'type-btn' + (type === 'expense' ? ' on-expense' : '');
@@ -172,6 +191,7 @@ function addItem() {
 
   const amount = parseFloat(document.getElementById('amount').value);
   const cat    = document.getElementById('cat').value;
+  const date   = document.getElementById('date').value || todayStr();
   const memo   = document.getElementById('memo').value.trim();
 
   if (!amount || amount <= 0) {
@@ -179,9 +199,10 @@ function addItem() {
     return;
   }
 
-  currentItems().push({ id: nextId++, type: currentType, cat, amount, memo });
+  currentItems().push({ id: nextId++, type: currentType, cat, amount, date, memo });
   document.getElementById('amount').value = '';
   document.getElementById('memo').value   = '';
+  document.getElementById('date').value   = todayStr(); // 다음 입력을 위해 오늘로 리셋
   saveToStorage();
   renderRecord();
   renderDashboard();
@@ -285,11 +306,11 @@ function renderRecord() {
   const tbody = document.getElementById('list-body');
 
   if (items.length === 0) {
-    tbody.innerHTML = '<tr class="empty-row"><td colspan="5">아직 내역이 없습니다.</td></tr>';
+    tbody.innerHTML = '<tr class="empty-row"><td colspan="6">아직 내역이 없습니다.</td></tr>';
     return;
   }
 
-  tbody.innerHTML = [...items].reverse().map(item => {
+  tbody.innerHTML = [...items].sort((a, b) => (b.date || '').localeCompare(a.date || '')).map(item => {
     const isIncome = item.type === 'income';
     const color    = isIncome ? '#1D9E75' : '#D85A30';
     const sign     = isIncome ? '+' : '-';
@@ -298,6 +319,7 @@ function renderRecord() {
 
     return `
       <tr>
+        <td style="color:#888;">${fmtDate(item.date)}</td>
         <td><span class="dot" style="background:${color};"></span>${label}</td>
         <td>${item.cat}</td>
         <td style="font-weight:600; color:${color};">${sign}${fmt(item.amount)}</td>
@@ -326,12 +348,13 @@ function renderHistory() {
     const expense = items.filter(i => i.type === 'expense').reduce((s, i) => s + i.amount, 0);
 
     const rows = items.length === 0
-      ? '<tr class="empty-row"><td colspan="4">내역 없음</td></tr>'
-      : [...items].reverse().map(item => {
+      ? '<tr class="empty-row"><td colspan="5">내역 없음</td></tr>'
+      : [...items].sort((a, b) => (b.date || '').localeCompare(a.date || '')).map(item => {
           const isIncome = item.type === 'income';
           const color = isIncome ? '#1D9E75' : '#D85A30';
           return `
             <tr>
+              <td style="color:#888;">${fmtDate(item.date)}</td>
               <td><span class="dot" style="background:${color};"></span>${isIncome ? '수입' : '지출'}</td>
               <td>${item.cat}</td>
               <td style="font-weight:600; color:${color};">${isIncome ? '+' : '-'}${fmt(item.amount)}</td>
@@ -351,7 +374,7 @@ function renderHistory() {
         </div>
         <div class="table-wrap">
           <table>
-            <thead><tr><th>구분</th><th>분류</th><th>금액</th><th>메모</th></tr></thead>
+            <thead><tr><th>날짜</th><th>구분</th><th>분류</th><th>금액</th><th>메모</th></tr></thead>
             <tbody>${rows}</tbody>
           </table>
         </div>

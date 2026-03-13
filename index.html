@@ -71,7 +71,11 @@
               <select id="cat"></select>
             </div>
             <div class="field">
-              <label><span class="step-num">3</span>메모 (선택)</label>
+              <label><span class="step-num">3</span>날짜</label>
+              <input type="date" id="date" />
+            </div>
+            <div class="field">
+              <label><span class="step-num">4</span>메모 (선택)</label>
               <input type="text" id="memo" placeholder="메모..." />
             </div>
           </div>
@@ -82,7 +86,7 @@
       <div class="table-wrap">
         <table>
           <thead>
-            <tr><th>구분</th><th>분류</th><th>금액</th><th>메모</th><th></th></tr>
+            <tr><th>날짜</th><th>구분</th><th>분류</th><th>금액</th><th>메모</th><th></th></tr>
           </thead>
           <tbody id="list-body">
             <tr class="empty-row"><td colspan="5">아직 내역이 없습니다.</td></tr>
