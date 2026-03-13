@@ -3,10 +3,10 @@
 // =========================================
 
 // =========================================
-// 상수 & 초기 데이터
+// 상수
 // =========================================
 
-const INCOME_CATS = ['급여', '이자', '배당', '기타'];
+const INCOME_CATS  = ['급여', '이자', '배당', '기타'];
 const EXPENSE_CATS = ['헌금', '고정지출', '생활비', '데이트비', '투자', '쇼핑'];
 
 const BAR_COLORS = {
@@ -18,8 +18,13 @@ const BAR_COLORS = {
   '쇼핑':    '#D85A30',
 };
 
-// 기본 예산 (예산 설정 탭에서 수정 가능)
-let budget = {
+const STORAGE_KEY = 'budget-app-data';
+
+// =========================================
+// 기본 예산값 (localStorage에 없을 때 사용)
+// =========================================
+
+const DEFAULT_BUDGET = {
   '헌금':    220000,
   '고정지출': 620000,
   '생활비':  400000,
@@ -32,40 +37,62 @@ let budget = {
 // 상태
 // =========================================
 
-let monthData = {};      // { "2026-03": { items: [], budget: {...} }, ... }
-let currentType = 'income';
-let nextId = 1;
+let budget    = JSON.parse(JSON.stringify(DEFAULT_BUDGET));
+let monthData = {};
+let nextId    = 1;
 
-const today = new Date();
-let viewKey = toKey(today.getFullYear(), today.getMonth() + 1);
+// =========================================
+// localStorage — 저장 / 불러오기
+// 반드시 다른 함수보다 먼저 선언
+// =========================================
+
+function saveToStorage() {
+  try {
+    const payload = JSON.stringify({ budget, monthData, nextId });
+    localStorage.setItem(STORAGE_KEY, payload);
+  } catch (e) {
+    console.error('[저장 실패]', e);
+    alert('데이터 저장에 실패했어요. 브라우저 저장 공간을 확인해주세요.');
+  }
+}
+
+function loadFromStorage() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return;
+    const data = JSON.parse(raw);
+    if (data.budget    && typeof data.budget    === 'object') budget    = data.budget;
+    if (data.monthData && typeof data.monthData === 'object') monthData = data.monthData;
+    if (data.nextId    && typeof data.nextId    === 'number') nextId    = data.nextId;
+  } catch (e) {
+    console.error('[불러오기 실패]', e);
+  }
+}
 
 // =========================================
 // 유틸 함수
 // =========================================
 
-/** 연/월 → "YYYY-MM" 키 */
 function toKey(year, month) {
   return year + '-' + String(month).padStart(2, '0');
 }
 
-/** "YYYY-MM" → "2026년 3월" */
 function keyToLabel(key) {
   const [y, m] = key.split('-');
   return y + '년 ' + parseInt(m) + '월';
 }
 
-/** 숫자 → "₩1,234,000" */
 function fmt(n) {
   return '₩' + Math.round(n).toLocaleString('ko-KR');
 }
 
-/** 오늘 날짜 → "YYYY-MM-DD" */
 function todayStr() {
   const d = new Date();
-  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  return d.getFullYear() + '-'
+    + String(d.getMonth() + 1).padStart(2, '0') + '-'
+    + String(d.getDate()).padStart(2, '0');
 }
 
-/** "YYYY-MM-DD" → "3/13" */
 function fmtDate(str) {
   if (!str) return '-';
   const [, m, d] = str.split('-');
@@ -76,23 +103,22 @@ function fmtDate(str) {
 // 데이터 접근
 // =========================================
 
+const today = new Date();
+let viewKey     = toKey(today.getFullYear(), today.getMonth() + 1);
+let currentType = 'income';
+
 function getMonthData(key) {
   if (!monthData[key]) {
     monthData[key] = {
-      items: [],
+      items:  [],
       budget: JSON.parse(JSON.stringify(budget)),
     };
   }
   return monthData[key];
 }
 
-function currentItems() {
-  return getMonthData(viewKey).items;
-}
-
-function currentBudget() {
-  return getMonthData(viewKey).budget;
-}
+function currentItems()  { return getMonthData(viewKey).items; }
+function currentBudget() { return getMonthData(viewKey).budget; }
 
 function isCurrentMonth() {
   const n = new Date();
@@ -105,30 +131,20 @@ function isCurrentMonth() {
 
 function changeMonth(dir) {
   const [y, m] = viewKey.split('-').map(Number);
-  const d = new Date(y, m - 1 + dir, 1);
+  const d      = new Date(y, m - 1 + dir, 1);
   const newKey = toKey(d.getFullYear(), d.getMonth() + 1);
-
-  // 미래 달(데이터 없음)은 이동 불가
   if (!monthData[newKey] && dir > 0 && newKey > toKey(today.getFullYear(), today.getMonth() + 1)) return;
-  // 과거 달(데이터 없음)도 이동 불가
   if (!monthData[newKey] && dir < 0) return;
-
   viewKey = newKey;
   renderDashboard();
   renderRecord();
 }
 
 function newMonth() {
-  const n = new Date();
+  const n      = new Date();
   const nowKey = toKey(n.getFullYear(), n.getMonth() + 1);
-  if (monthData[nowKey]) {
-    alert('이미 현재 달 데이터가 있어요!');
-    return;
-  }
-  monthData[nowKey] = {
-    items: [],
-    budget: JSON.parse(JSON.stringify(budget)),
-  };
+  if (monthData[nowKey]) { alert('이미 현재 달 데이터가 있어요!'); return; }
+  monthData[nowKey] = { items: [], budget: JSON.parse(JSON.stringify(budget)) };
   viewKey = nowKey;
   saveToStorage();
   renderDashboard();
@@ -145,7 +161,6 @@ function showPage(name, tabEl) {
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   document.getElementById('page-' + name).classList.add('active');
   tabEl.classList.add('active');
-
   if (name === 'dashboard') renderDashboard();
   if (name === 'record')    renderRecord();
   if (name === 'history')   renderHistory();
@@ -158,24 +173,17 @@ function showPage(name, tabEl) {
 
 function setType(type) {
   currentType = type;
-  const cats = type === 'income' ? INCOME_CATS : EXPENSE_CATS;
-
-  // 분류 드롭다운 업데이트
+  const cats  = type === 'income' ? INCOME_CATS : EXPENSE_CATS;
   document.getElementById('cat').innerHTML = cats.map(c => `<option>${c}</option>`).join('');
 
-  // 오늘 날짜 자동 입력 (이미 값 있으면 유지)
   const dateEl = document.getElementById('date');
-  if (!dateEl.value) {
-    dateEl.value = todayStr();
-  }
+  if (dateEl && !dateEl.value) dateEl.value = todayStr();
 
-  // 버튼 스타일 — 선택된 버튼에만 색 표시
   document.getElementById('t-income').className  = 'type-btn' + (type === 'income'  ? ' on-income'  : '');
   document.getElementById('t-expense').className = 'type-btn' + (type === 'expense' ? ' on-expense' : '');
 
-  // 추가 버튼 색
-  const btn = document.getElementById('add-btn');
-  btn.className = 'add-btn ' + type;
+  const btn       = document.getElementById('add-btn');
+  btn.className   = 'add-btn ' + type;
   btn.textContent = type === 'income' ? '+ 수입 추가' : '+ 지출 추가';
 }
 
@@ -184,25 +192,21 @@ function setType(type) {
 // =========================================
 
 function addItem() {
-  if (!isCurrentMonth()) {
-    alert('현재 달에서만 기입할 수 있어요.');
-    return;
-  }
+  if (!isCurrentMonth()) { alert('현재 달에서만 기입할 수 있어요.'); return; }
 
   const amount = parseFloat(document.getElementById('amount').value);
   const cat    = document.getElementById('cat').value;
   const date   = document.getElementById('date').value || todayStr();
   const memo   = document.getElementById('memo').value.trim();
 
-  if (!amount || amount <= 0) {
-    alert('금액을 입력해주세요.');
-    return;
-  }
+  if (!amount || amount <= 0) { alert('금액을 입력해주세요.'); return; }
 
   currentItems().push({ id: nextId++, type: currentType, cat, amount, date, memo });
+
   document.getElementById('amount').value = '';
   document.getElementById('memo').value   = '';
-  document.getElementById('date').value   = todayStr(); // 다음 입력을 위해 오늘로 리셋
+  document.getElementById('date').value   = todayStr();
+
   saveToStorage();
   renderRecord();
   renderDashboard();
@@ -231,26 +235,23 @@ function renderDashboard() {
 
   document.getElementById('s-income').textContent  = fmt(income);
   document.getElementById('s-expense').textContent = fmt(expense);
-  const balEl = document.getElementById('s-balance');
-  balEl.textContent  = fmt(balance);
-  balEl.style.color  = balance >= 0 ? '#1D9E75' : '#D85A30';
+  const balEl       = document.getElementById('s-balance');
+  balEl.textContent = fmt(balance);
+  balEl.style.color = balance >= 0 ? '#1D9E75' : '#D85A30';
 
-  // 카테고리별 지출 집계
   const expBycat = {};
   EXPENSE_CATS.forEach(c => (expBycat[c] = 0));
   items.filter(i => i.type === 'expense').forEach(i => {
     if (expBycat[i.cat] !== undefined) expBycat[i.cat] += i.amount;
   });
 
-  // 잔여 카드
   document.getElementById('remain-grid').innerHTML = EXPENSE_CATS.map(cat => {
-    const b      = bud[cat] || 0;
-    const spent  = expBycat[cat] || 0;
-    const remain = b - spent;
-    const pct    = b > 0 ? Math.min(100, Math.round((spent / b) * 100)) : 0;
+    const b           = bud[cat] || 0;
+    const spent       = expBycat[cat] || 0;
+    const remain      = b - spent;
+    const pct         = b > 0 ? Math.min(100, Math.round((spent / b) * 100)) : 0;
     const barColor    = pct >= 90 ? '#D85A30' : pct >= 70 ? '#BA7517' : (BAR_COLORS[cat] || '#1D9E75');
     const remainColor = remain < 0 ? '#D85A30' : pct >= 70 ? '#BA7517' : '#1D9E75';
-
     return `
       <div class="remain-card">
         <div class="rc-top">
@@ -267,7 +268,6 @@ function renderDashboard() {
       </div>`;
   }).join('');
 
-  // 막대 그래프
   const maxVal = Math.max(...EXPENSE_CATS.map(c => Math.max(bud[c] || 0, expBycat[c] || 0)), 1);
   document.getElementById('bar-chart').innerHTML = EXPENSE_CATS.map(cat => {
     const b     = bud[cat] || 0;
@@ -275,7 +275,6 @@ function renderDashboard() {
     const bW    = Math.round((b / maxVal) * 100);
     const eW    = Math.round((e / maxVal) * 100);
     const color = BAR_COLORS[cat] || '#1D9E75';
-
     return `
       <div class="bar-row">
         <span class="bar-cat-label">${cat}</span>
@@ -310,23 +309,22 @@ function renderRecord() {
     return;
   }
 
-  tbody.innerHTML = [...items].sort((a, b) => (b.date || '').localeCompare(a.date || '')).map(item => {
-    const isIncome = item.type === 'income';
-    const color    = isIncome ? '#1D9E75' : '#D85A30';
-    const sign     = isIncome ? '+' : '-';
-    const label    = isIncome ? '수입' : '지출';
-    const delBtn   = isCurrent ? `<button class="del" onclick="deleteItem(${item.id})">×</button>` : '';
-
-    return `
-      <tr>
-        <td style="color:#888;">${fmtDate(item.date)}</td>
-        <td><span class="dot" style="background:${color};"></span>${label}</td>
-        <td>${item.cat}</td>
-        <td style="font-weight:600; color:${color};">${sign}${fmt(item.amount)}</td>
-        <td style="color:#888;">${item.memo || '-'}</td>
-        <td>${delBtn}</td>
-      </tr>`;
-  }).join('');
+  tbody.innerHTML = [...items]
+    .sort((a, b) => (b.date || '').localeCompare(a.date || ''))
+    .map(item => {
+      const isIncome = item.type === 'income';
+      const color    = isIncome ? '#1D9E75' : '#D85A30';
+      const delBtn   = isCurrent ? `<button class="del" onclick="deleteItem(${item.id})">×</button>` : '';
+      return `
+        <tr>
+          <td style="color:#888;">${fmtDate(item.date)}</td>
+          <td><span class="dot" style="background:${color};"></span>${isIncome ? '수입' : '지출'}</td>
+          <td>${item.cat}</td>
+          <td style="font-weight:600; color:${color};">${isIncome ? '+' : '-'}${fmt(item.amount)}</td>
+          <td style="color:#888;">${item.memo || '-'}</td>
+          <td>${delBtn}</td>
+        </tr>`;
+    }).join('');
 }
 
 // =========================================
@@ -344,23 +342,25 @@ function renderHistory() {
 
   el.innerHTML = keys.map(key => {
     const items   = monthData[key].items;
-    const income  = items.filter(i => i.type === 'income').reduce((s, i) => s + i.amount, 0);
+    const income  = items.filter(i => i.type === 'income').reduce((s, i)  => s + i.amount, 0);
     const expense = items.filter(i => i.type === 'expense').reduce((s, i) => s + i.amount, 0);
 
     const rows = items.length === 0
       ? '<tr class="empty-row"><td colspan="5">내역 없음</td></tr>'
-      : [...items].sort((a, b) => (b.date || '').localeCompare(a.date || '')).map(item => {
-          const isIncome = item.type === 'income';
-          const color = isIncome ? '#1D9E75' : '#D85A30';
-          return `
-            <tr>
-              <td style="color:#888;">${fmtDate(item.date)}</td>
-              <td><span class="dot" style="background:${color};"></span>${isIncome ? '수입' : '지출'}</td>
-              <td>${item.cat}</td>
-              <td style="font-weight:600; color:${color};">${isIncome ? '+' : '-'}${fmt(item.amount)}</td>
-              <td style="color:#888;">${item.memo || '-'}</td>
-            </tr>`;
-        }).join('');
+      : [...items]
+          .sort((a, b) => (b.date || '').localeCompare(a.date || ''))
+          .map(item => {
+            const isIncome = item.type === 'income';
+            const color    = isIncome ? '#1D9E75' : '#D85A30';
+            return `
+              <tr>
+                <td style="color:#888;">${fmtDate(item.date)}</td>
+                <td><span class="dot" style="background:${color};"></span>${isIncome ? '수입' : '지출'}</td>
+                <td>${item.cat}</td>
+                <td style="font-weight:600; color:${color};">${isIncome ? '+' : '-'}${fmt(item.amount)}</td>
+                <td style="color:#888;">${item.memo || '-'}</td>
+              </tr>`;
+          }).join('');
 
     return `
       <div style="margin-bottom:1.25rem;">
@@ -405,7 +405,7 @@ function renderSettings() {
 
 function editBudget(cat) {
   document.getElementById('display-' + cat).style.display = 'none';
-  document.getElementById('edit-' + cat).style.display = 'flex';
+  document.getElementById('edit-' + cat).style.display    = 'flex';
   document.getElementById('bs-' + cat).focus();
 }
 
@@ -415,7 +415,6 @@ function saveBudget(cat) {
   getMonthData(viewKey).budget[cat] = val;
   renderDashboard();
 
-  // 편집 → 표시 모드로 전환
   document.getElementById('edit-' + cat).style.display = 'none';
   const displayEl = document.getElementById('display-' + cat);
   displayEl.querySelector('.bs-amount').textContent = fmt(val);
@@ -424,41 +423,15 @@ function saveBudget(cat) {
   const tag = document.getElementById('saved-' + cat);
   tag.style.display = 'block';
   setTimeout(() => { tag.style.display = 'none'; }, 1500);
+
   saveToStorage();
 }
 
 // =========================================
-// 앱 초기화
+// 앱 초기화 — 순서 절대 바꾸지 말 것!
 // =========================================
 
-loadFromStorage();
-getMonthData(viewKey);
-setType('income');
-renderDashboard();
-
-// =========================================
-// localStorage 저장 / 불러오기
-// =========================================
-
-const STORAGE_KEY = 'budget-app-data';
-
-function saveToStorage() {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ budget, monthData, nextId }));
-  } catch (e) {
-    console.warn('저장 실패:', e);
-  }
-}
-
-function loadFromStorage() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return;
-    const data = JSON.parse(raw);
-    if (data.budget)    budget    = data.budget;
-    if (data.monthData) monthData = data.monthData;
-    if (data.nextId)    nextId    = data.nextId;
-  } catch (e) {
-    console.warn('불러오기 실패:', e);
-  }
-}
+loadFromStorage();      // 1. 저장된 데이터 복원 (가장 먼저!)
+getMonthData(viewKey);  // 2. 이번 달 데이터 확보
+setType('income');      // 3. 기본 타입 + 오늘 날짜 세팅
+renderDashboard();      // 4. 화면 그리기
