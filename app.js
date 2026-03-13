@@ -431,10 +431,9 @@ function saveBudget(cat) {
 // 앱 초기화
 // =========================================
 
-getMonthData(viewKey);
-setType('income');
 loadFromStorage();
 getMonthData(viewKey);
+setType('income');
 renderDashboard();
 
 // =========================================
